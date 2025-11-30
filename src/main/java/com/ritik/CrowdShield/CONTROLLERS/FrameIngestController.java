@@ -24,7 +24,7 @@ public class FrameIngestController {
     @PostMapping("/ingest")
     public ResponseEntity<String> ingestFrame(@RequestBody FrameData frame) {
 
-        // 1. Broadcast metrics card data (FIXED)
+        // 1. Broadcast metrics card data
         messagingTemplate.convertAndSend(
                 "/topic/metrics",
                 (Object) Map.of(
@@ -34,7 +34,7 @@ public class FrameIngestController {
                 )
         );
 
-        // 2. Broadcast heatmap (FIXED)
+        // 2. Broadcast heatmap
         messagingTemplate.convertAndSend(
                 "/topic/heatmap",
                 (Object) Map.of(
@@ -42,7 +42,7 @@ public class FrameIngestController {
                 )
         );
 
-        // 3. If riskScore > 70 send alert (FIXED)
+        // 3. If riskScore > 70 send alert
         if (frame.getRiskScore() > 70) {
             messagingTemplate.convertAndSend(
                     "/topic/alerts",

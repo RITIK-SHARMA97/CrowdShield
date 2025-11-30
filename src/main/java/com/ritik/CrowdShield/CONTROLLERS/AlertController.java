@@ -1,4 +1,4 @@
-package com.ritik.CrowdShield.CONTROLLER;
+package com.ritik.CrowdShield.CONTROLLERS;
 
 import com.ritik.CrowdShield.MODELS.Alert;
 import com.ritik.CrowdShield.REPOSITORY.AlertRepository;
