@@ -1,8 +1,9 @@
 package com.ritik.CrowdShield.SERVICES;
 
 import com.ritik.CrowdShield.DTO.HeatMapResponse;
+import com.ritik.CrowdShield.DTO.MetricDTO;
+import com.ritik.CrowdShield.DTO.MetricDTO;
 import com.ritik.CrowdShield.MODELS.CrowdMetrics;
-import com.ritik.CrowdShield.REPOSITORY.AlertRepository;
 import com.ritik.CrowdShield.REPOSITORY.CrowdMetricRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -15,62 +16,49 @@ import java.util.Random;
 @Service
 @RequiredArgsConstructor
 public class CrowdDetectionService {
+
     private final ESRSService esrsService;
     private final CrowdMetricRepository metricsRepo;
-    private  final AlertService alertService;
-    // used to send real time update via websocket
+    private final AlertService alertService;
     private final SimpMessagingTemplate webSocket;
 
+    private final Random rand = new Random();
 
+    public void detect(MultipartFile file) {
 
-    // mocks the process of frame analysis to detect crowd metrics and update the system
+        // ------- 1. SIMULATED FRAME ANALYSIS -------
+        int crowdCount = rand.nextInt(100) + 50;   // 50–149
+        double flowSpeed = rand.nextDouble() * 2;  // 0–2 m/s
 
-    public void detect(MultipartFile file){
-            // mocking frame analysis with openCv
-        Random rand = new Random();
-        int crowdCount = rand.nextInt(100) +50; // mocks crowd count (50 to 149)
-        double flowSpeed = rand.nextDouble()*2;// mocks flow Speed (0.0 to 2.0)
+        // ------- 2. CALCULATE RISK -------
+        double risk = Math.min(esrsService.calculateRisk(crowdCount, flowSpeed), 100.0);
 
-        // 1 calculate risk
-        double risk = esrsService.calculateRisk(crowdCount,flowSpeed);
-
-        //2  persist Metrics
+        // ------- 3. SAVE TO DATABASE -------
         CrowdMetrics m = new CrowdMetrics();
         m.setCrowdCount(crowdCount);
         m.setFlowSpeed(flowSpeed);
-        m.setRiskScore(Math.min(risk,100.0)); // cap risk at 100
+        m.setRiskScore(risk);
         m.setTimestamp(LocalDateTime.now());
         metricsRepo.save(m);
 
-        // 3 send real rime metric update to dashboard
-        webSocket.convertAndSend("topic/metric",m);
+        // ------- 4. SEND METRICS TO DASHBOARD -------
+        MetricDTO dto = new MetricDTO(crowdCount, flowSpeed, risk);
+        webSocket.convertAndSend("/topic/metrics", dto);
 
-        // 4  send real time heatmap update (mock)
-        // a simple 10x10 heatmap grid
-        int [] [] heatmap = new int [10][10];
-        int density =(int) (Math.min(risk,100.0)/10.0);
-        for(int i=0;i<10;i++){
-            for(int j=0;j<10;j++){
-                heatmap[i][j]= rand.nextInt(density+1);
+        // ------- 5. HEATMAP DATA -------
+        int[][] heatmap = new int[10][10];
+        int density = (int) (risk / 10.0);
+
+        for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                heatmap[i][j] = rand.nextInt(density + 1);
             }
         }
-        int densityLevel = risk > 70 ? 2 : (risk >40 ? 1:0);
-        webSocket.convertAndSend("/topic/heatmap" , new HeatMapResponse(heatmap,densityLevel));
-        // check and trigger Alert /PA System
 
+        int densityLevel = risk > 70 ? 2 : (risk > 40 ? 1 : 0);
+        webSocket.convertAndSend("/topic/heatmap", new HeatMapResponse(heatmap, densityLevel));
+
+        // ------- 6. CHECK ALERTS -------
         alertService.checkAndSendAlert(risk);
-
-
-
-
-
     }
-
-
-
-
-
-
-
-
 }
